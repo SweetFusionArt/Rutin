@@ -1,0 +1,323 @@
+# Fájl 1/3 – `index.html`
+
+```html
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Rugalmas Rutin</title>
+  <meta name="description" content="Puha timebox, gördülő sor, energia–szorongás állapotcsúszkák, 90 mp rámpa, 30 mp légzés." />
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#111827"/>
+  <style>
+    :root{
+      --bg:#0b1220; --card:#111827; --muted:#9CA3AF; --text:#E5E7EB; --accent:#60A5FA; --ok:#34D399; --warn:#FBBF24; --danger:#F87171;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(160deg,#0b1220,#0e1a33);color:var(--text);font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Inter, Helvetica, Arial}
+    .wrap{max-width:900px;margin:0 auto;padding:16px 16px 80px}
+    header{display:flex;align-items:center;gap:12px;padding:12px 0}
+    header h1{font-size:20px;margin:0}
+    .card{background:rgba(17,24,39,.85);backdrop-filter:blur(6px);border:1px solid #1f2937;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .col{flex:1 1 280px}
+    label{display:block;font-weight:600;margin-bottom:8px}
+    input[type=range]{width:100%}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid #374151;color:#D1D5DB}
+    .pill.ok{border-color:#064e3b;color:#a7f3d0}
+    .pill.warn{border-color:#78350f;color:#fde68a}
+    .pill.danger{border-color:#7f1d1d;color:#fecaca}
+    .btn{appearance:none;border:1px solid #374151;background:#111827;color:#E5E7EB;padding:10px 14px;border-radius:12px;cursor:pointer}
+    .btn:hover{border-color:#4b5563}
+    .btn.pri{background:linear-gradient(180deg,#1f3a8a,#1e40af);border-color:#1d4ed8}
+    .btn.ghost{background:transparent}
+    .tasks{display:grid;grid-template-columns:repeat(auto-fill, minmax(240px,1fr));gap:12px}
+    .task{border:1px solid #1f2937;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px}
+    .meta{display:flex;flex-wrap:wrap;gap:6px}
+    .muted{color:var(--muted)}
+    .small{font-size:12px}
+    .timer{font-variant-numeric:tabular-nums;font-size:28px;font-weight:700}
+    .section-title{margin:8px 0 4px;font-size:14px;color:#cbd5e1;text-transform:uppercase;letter-spacing:.08em}
+    .hl{color:#93c5fd}
+    .success{color:#a7f3d0}
+    .empty{border:1px dashed #374151;padding:16px;border-radius:14px;text-align:center;color:#9ca3af}
+    .footerbar{position:fixed;left:0;right:0;bottom:0;background:#0b1220;border-top:1px solid #1f2937;padding:10px;display:flex;justify-content:center}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 6h18M3 12h18M3 18h18" stroke="#93c5fd" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <h1>Rugalmas Rutin <span class="muted small">• puha timebox + állapotcsúszkák</span></h1>
+    </header>
+
+    <section class="card">
+      <div class="row">
+        <div class="col">
+          <label>Energia</label>
+          <input id="energy" type="range" min="0" max="2" value="1" step="1" />
+          <div id="energyLabel" class="muted small">Közepes</div>
+        </div>
+        <div class="col">
+          <label>Szorongás</label>
+          <input id="anxiety" type="range" min="0" max="2" value="1" step="1" />
+          <div id="anxietyLabel" class="muted small">Közepes</div>
+        </div>
+        <div class="col">
+          <label>Ajánlott blokk</label>
+          <div id="blockRec" class="pill">—</div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="breathBtn" class="btn">30 mp légzés</button>
+        <button id="rampBtn" class="btn pri">90 mp rámpa</button>
+        <button id="skipBtn" class="btn ghost">Skip-jogok: <span id="skipsLeft">2</span></button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">Következő lépés</div>
+      <div id="nextStep" class="empty">Állítsd be az állapotcsúszkákat vagy nyomd meg a „90 mp rámpa” gombot.</div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">Feladatok</div>
+      <div id="taskGrid" class="tasks"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">Időzítő</div>
+      <div id="timerBox" class="empty">Nincs futó blokk</div>
+    </section>
+  </div>
+
+  <div class="footerbar small muted">Adatok helyben tárolva • Offline működés • v0.1</div>
+
+  <script>
+  // --- Alapadatok (szerkeszthető) -------------------------------------------------
+  const DEFAULT_TASKS = [
+    // kategória, cím, mikro, normál, terhelés-tag (green/yellow/red)
+    {cat:'Tanulás', title:'5 perc fókusz', micro:'1 perc jegyzet', normal:'10-15 perc blokk', load:'yellow'},
+    {cat:'Főzés', title:'Előkészítés', micro:'Zöldség mosás 1 perc', normal:'Alap aprítás 10 perc', load:'green'},
+    {cat:'Házimunka', title:'Rendrakás', micro:'1 felület letörlése', normal:'Egy zóna 10 perc', load:'green'},
+    {cat:'Olvasás', title:'Csendes olvasás', micro:'1 oldal', normal:'10-15 perc', load:'green'},
+    {cat:'Meditáció', title:'Légzés', micro:'30 mp légzés', normal:'10 perc légzés', load:'green'},
+    {cat:'Testmozgás', title:'Mozgás', micro:'10 guggolás', normal:'12 perc séta/nyújtás', load:'yellow'}
+  ];
+
+  const STATE = JSON.parse(localStorage.getItem('rr-state')||'{}');
+  if(!STATE.tasks) STATE.tasks = DEFAULT_TASKS;
+  if(typeof STATE.skips !== 'number') STATE.skips = 2; // napi 2 büntetlen átugrás
+  save();
+
+  // --- UI elemek ------------------------------------------------------------------
+  const energy = document.getElementById('energy');
+  const anxiety = document.getElementById('anxiety');
+  const eLbl = document.getElementById('energyLabel');
+  const aLbl = document.getElementById('anxietyLabel');
+  const blockRec = document.getElementById('blockRec');
+  const grid = document.getElementById('taskGrid');
+  const nextStep = document.getElementById('nextStep');
+  const timerBox = document.getElementById('timerBox');
+  const skipsLeft = document.getElementById('skipsLeft');
+
+  const LABELS = ['Alacsony','Közepes','Magas'];
+
+  function save(){ localStorage.setItem('rr-state', JSON.stringify(STATE)); }
+
+  function mapBlock(energyLvl, anxietyLvl){
+    // szenzitív leképezés: magas szorongás -> rövidebb és "zöld" feladatok
+    // visszatér: {mins: number, load: 'green'|'yellow'|'red'}
+    const matrix = [
+      // anxiety: low(0)   mid(1)          high(2)
+      [{mins:15, load:'yellow'},{mins:12, load:'green'},{mins:8, load:'green'}], // energy low(0)
+      [{mins:18, load:'yellow'},{mins:15, load:'yellow'},{mins:10, load:'green'}], // energy mid(1)
+      [{mins:22, load:'red'},{mins:18, load:'yellow'},{mins:12, load:'yellow'}]    // energy high(2)
+    ];
+    return matrix[energyLvl][anxietyLvl];
+  }
+
+  function loadBadge(load){
+    const map = {green:['Kímélő','ok'], yellow:['Közepes','warn'], red:['Intenzív','danger']};
+    const [label, cls] = map[load]||['—',''];
+    return `<span class="pill ${cls}">${label}</span>`;
+  }
+
+  function renderTasks(){
+    grid.innerHTML = '';
+    STATE.tasks.forEach((t,i)=>{
+      const card = document.createElement('div');
+      card.className = 'task';
+      card.innerHTML = `
+        <div class="small muted">${t.cat}</div>
+        <div><strong>${t.title}</strong></div>
+        <div class="meta">${loadBadge(t.load)}</div>
+        <div class="small">Mikro: <span class="hl">${t.micro}</span></div>
+        <div class="small">Normál: ${t.normal}</div>
+        <div class="row">
+          <button class="btn" data-act="micro" data-i="${i}">Mikro indítás</button>
+          <button class="btn pri" data-act="normal" data-i="${i}">Blokk indítás</button>
+          <button class="btn ghost" data-act="skip" data-i="${i}">Átugrás</button>
+        </div>`;
+      grid.appendChild(card);
+    });
+  }
+
+  function setNextStep(){
+    const e = +energy.value, a = +anxiety.value;
+    eLbl.textContent = LABELS[e];
+    aLbl.textContent = LABELS[a];
+    const rec = mapBlock(e,a);
+    blockRec.innerHTML = `${rec.mins} perc • ${loadBadge(rec.load)}`;
+    nextStep.className = '';
+    nextStep.innerHTML = `Javasolt: <span class="hl">${rec.mins} perc</span> kímélő/megfelelő terhelésű feladat. Válassz egyet a lenti listából.\n`;
+  }
+
+  // --- Időzítő --------------------------------------------------------------------
+  let timer = null, endsAt = null;
+  function startTimer(label, seconds){
+    endsAt = Date.now() + seconds*1000;
+    timerBox.className = 'card';
+    timerBox.innerHTML = `<div>${label}</div><div class="timer" id="tval">--:--</div><div class="small muted">Megállíthatod bármikor – bűntudat nélkül.</div>`;
+    if(timer) clearInterval(timer);
+    timer = setInterval(()=>{
+      const left = Math.max(0, Math.floor((endsAt - Date.now())/1000));
+      const mm = String(Math.floor(left/60)).padStart(2,'0');
+      const ss = String(left%60).padStart(2,'0');
+      const el = document.getElementById('tval');
+      if(el) el.textContent = `${mm}:${ss}`;
+      if(left<=0){ clearInterval(timer); timer=null; timerBox.innerHTML = `<div class="success">Blokk kész ✔</div>`; }
+    },200);
+  }
+
+  // --- Rámpa és légzés ------------------------------------------------------------
+  document.getElementById('breathBtn').addEventListener('click',()=>{
+    startTimer('30 mp légzés',30);
+  });
+  document.getElementById('rampBtn').addEventListener('click',()=>{
+    startTimer('90 mp rámpa (víz, ablak, test)',90);
+    setTimeout(()=>{
+      const rec = mapBlock(+energy.value,+anxiety.value);
+      startTimer(`${rec.mins} perces blokk`, rec.mins*60);
+    }, 90000);
+  });
+
+  // --- Skip jogok -----------------------------------------------------------------
+  function refreshSkips(){ skipsLeft.textContent = STATE.skips; }
+  document.getElementById('skipBtn').addEventListener('click',()=>{
+    STATE.skips = Math.min(2, STATE.skips+1); save(); refreshSkips();
+  });
+
+  grid.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button'); if(!btn) return;
+    const act = btn.dataset.act, i = +btn.dataset.i;
+    const rec = mapBlock(+energy.value,+anxiety.value);
+    if(act==='micro'){ startTimer(`Mikro: ${STATE.tasks[i].micro}`, 60); }
+    if(act==='normal'){ startTimer(`${rec.mins} perces: ${STATE.tasks[i].title}`, rec.mins*60); }
+    if(act==='skip'){
+      if(STATE.skips>0){ STATE.skips--; save(); refreshSkips(); }
+      else alert('A mai két skip-jog elfogyott.');
+    }
+  });
+
+  // --- Gördülő sor (egyszerű logika) ---------------------------------------------
+  // Itt: ha egy blokk félbemarad (kilépés), a kiválasztott feladat a "következő lépés" üzenetben megjelenhetne.
+  // Minimalista protó: a rámpa után mindig ajánl egy blokkot a jelen állapot alapján.
+
+  // --- SW regisztráció -----------------------------------------------------------
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{ navigator.serviceWorker.register('./sw.js'); });
+  }
+
+  // init
+  refreshSkips();
+  renderTasks();
+  setNextStep();
+  energy.addEventListener('input', setNextStep);
+  anxiety.addEventListener('input', setNextStep);
+  </script>
+</body>
+</html>
+```
+
+---
+
+# Fájl 2/3 – `manifest.webmanifest`
+
+> Ikonok data URI-ként beágyazva – nincs szükség külön fájlokra.
+
+```json
+{
+  "name": "Rugalmas Rutin",
+  "short_name": "Rutin",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' rx='56' fill='%23111827'/%3E%3Cpath d='M64 76h128M64 128h128M64 180h128' stroke='%2393c5fd' stroke-width='16' stroke-linecap='round'/%3E%3C/svg%3E",
+      "sizes": "256x256",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
+```
+
+---
+
+# Fájl 3/3 – `sw.js`
+
+> Egyszerű offline cache (app shell). Install/update esetén frissít.
+
+```js
+const CACHE = 'rutin-cache-v1';
+const ASSETS = [
+  './',
+  './index.html',
+  './manifest.webmanifest'
+];
+self.addEventListener('install', (e)=>{
+  e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));
+});
+self.addEventListener('activate', (e)=>{
+  e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));
+  self.clients.claim();
+});
+self.addEventListener('fetch', (e)=>{
+  const url = new URL(e.request.url);
+  if(url.origin === location.origin){
+    e.respondWith(caches.match(e.request).then(res=>res || fetch(e.request)));
+  }
+});
+```
+
+---
+
+## Telepítés Androidon (ingyenes)
+
+1. Nyisd meg ezt a három fájlt egy mappában (például `rutin/`).
+2. Töltsd fel **GitHub Pagesre** (ingyenes): új repo → fájlok feltöltése → Settings → Pages → Branch: `main`/`root`. Vagy bármely ingyenes statikus tárhely.
+3. Nyisd meg a telefonon Chrome-ban az URL-t → menü → **Hozzáadás a kezdőképernyőhöz** → „Telepítés”.
+4. Ikon jelenik meg; offline is fut.
+
+### Megjegyzés
+
+* Minden adat helyben, `localStorage`-ban tárolódik.
+* A „Skip-jogok” naponta visszatölthető logikát később dátum-alapra állíthatjuk (most manuális).
+* Az energia–szorongás mátrix könnyen finomhangolható.
+
+### Következő iteráció ötletek
+
+* Napi reset + statisztika;
+* Kiváltó feladatok elrejtése;
+* "Kímélő mód" UI;
+* Export/Import.
+
+```
+```
